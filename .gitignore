@@ -1,0 +1,37 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+env.bak/
+venv/
+.venv/
+*.sqlite3
+*.db
+*.log
+*.pot
+*.pyc
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+Thumbs.db
+
+# Flask instance folder
+instance/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# local files
+*.local
+
+# ignore local IDE settings
+*.code-workspace

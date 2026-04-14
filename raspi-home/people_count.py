@@ -1,0 +1,70 @@
+import cv2
+import numpy as np
+import requests
+
+# Load model
+net = cv2.dnn.readNetFromCaffe(
+    "MobileNetSSD_deploy.prototxt",
+    "MobileNetSSD_deploy.caffemodel"
+)
+
+CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+           "dog", "horse", "motorbike", "person", "pottedplant",
+           "sheep", "sofa", "train", "tvmonitor"]
+
+cap = cv2.VideoCapture(0)
+
+# Reduce resolution (important)
+cap.set(3, 320)
+cap.set(4, 240)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    h, w = frame.shape[:2]
+
+    blob = cv2.dnn.blobFromImage(frame, 0.007843, (300, 300), 127.5)
+    net.setInput(blob)
+    detections = net.forward()
+
+    person_count = 0
+
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+
+        if confidence > 0.6:
+            idx = int(detections[0, 0, i, 1])
+            label = CLASSES[idx]
+
+            if label == "person":
+                person_count += 1
+
+                box = detections[0, 0, i, 3:7] * [w, h, w, h]
+                (x1, y1, x2, y2) = box.astype("int")
+
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, "Person", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    # Display count
+    cv2.putText(frame, f"Count: {person_count}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+    print("People Count:", person_count)
+
+    # Send to dashboard (if running)
+    try:
+        requests.get(f"http://localhost:5000/update/{person_count}")
+    except:
+        pass
+
+    cv2.imshow("People Counter", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()

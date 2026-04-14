@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Queue Dashboard</title>
+
+```
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- IMPORTANT: time adapter -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+```
+
+</head>
+<body>
+
+<h1>Queue Monitoring</h1>
+
+<h2>Current Count: <span id="count">0</span></h2>
+<h3 id="alert">Normal</h3>
+<h2>Current Weight: <span id="weight">0</span></h2>
+<canvas id="chart"></canvas>
+
+<script>
+let chart;
+
+async function fetchData() {
+    let res = await fetch('/data');
+    let data = await res.json();
+
+    document.getElementById("count").innerText = data.current;
+    document.getElementById("weight").innerText = data.weight;
+
+    if (data.current > 5) {
+        document.getElementById("alert").innerText = "⚠ High Queue!";
+    } else {
+        document.getElementById("alert").innerText = "Normal";
+    }
+
+    // Convert time strings to actual Date objects
+    let labels = data.history.map(x => {
+        let now = new Date();
+        let [h, m, s] = x.time.split(":");
+        now.setHours(h);
+        now.setMinutes(m);
+        now.setSeconds(s);
+        return new Date(now);
+    });
+
+    let values = data.history.map(x => x.count);
+
+    if (!chart) {
+        const ctx = document.getElementById('chart').getContext('2d');
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Queue',
+                    data: values,
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                animation: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'minute',
+                            stepSize: 15,   
+                            displayFormats: {
+                                minute: 'HH:mm'
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+    } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+    }
+}
+
+setInterval(fetchData, 1000);
+</script>
+
+</body>
+</html>
+
+
+ंंंं

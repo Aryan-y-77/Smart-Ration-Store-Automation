@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Ration Store</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0b1120;
+  --surface: #111827;
+  --border:  rgba(255,255,255,0.07);
+  --text:    #f1f5f9;
+  --muted:   #64748b;
+  --a1:      #38bdf8;
+  --a2:      #a78bfa;
+  --a3:      #fb923c;
+  --green:   #34d399;
+  --yellow:  #fbbf24;
+  --red:     #f87171;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 60px;
+}
+
+/* ── Header ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.clock { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ── Page ── */
+.page { max-width: 1120px; margin: 0 auto; padding: 36px 24px 0; }
+
+/* ── Stat Cards ── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 28px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 24px 18px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.card:hover { border-color: rgba(255,255,255,0.13); transform: translateY(-2px); }
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  border-radius: 16px 16px 0 0;
+}
+.card.c1::after { background: var(--a1); }
+.card.c2::after { background: var(--a2); }
+.card.c3::after { background: var(--a3); }
+
+.card-lbl {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.card-num {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.card-num.c1 { color: var(--a1); }
+.card-num.c2 { color: var(--a2); }
+.card-num.c3 { color: var(--a3); }
+.card-unit { font-size: 0.95rem; font-weight: 400; color: var(--muted); margin-left: 3px; }
+
+/* mini progress bar under weight cards */
+.bar-track {
+  margin-top: 14px;
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 20px;
+  letter-spacing: 0.4px;
+}
+.ok     { background: rgba(52,211,153,0.13);  color: var(--green); }
+.warn   { background: rgba(251,191,36,0.13);   color: var(--yellow); }
+.danger { background: rgba(248,113,113,0.13);  color: var(--red); }
+.card-meta {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.alert-list {
+  display: grid;
+  gap: 10px;
+}
+.alert-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.alert-item.ok { color: var(--green); }
+.alert-item.warn { color: var(--yellow); }
+.alert-item.danger { color: var(--red); }
+.alert-item-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.alert-item-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+/* ── Chart panels ── */
+.charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+}
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.panel-title { font-size: 0.88rem; font-weight: 600; }
+.panel-sub   { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+.legend {
+  display: flex;
+  gap: 12px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  align-items: center;
+}
+.sw {
+  display: inline-block;
+  width: 18px; height: 3px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.cw { position: relative; width: 100%; height: 230px; }
+
+@media(max-width:700px){
+  .cards  { grid-template-columns:1fr; }
+  .charts { grid-template-columns:1fr; }
+  .header { padding:14px 18px; }
+  .page   { padding:18px 14px 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <div class="live-dot"></div>
+    Smart Ration Store Dashboard
+  </div>
+  <div class="clock" id="clk">--:--:--</div>
+</div>
+
+<div class="page">
+
+  <!-- Stat Cards -->
+  <div class="cards">
+    <div class="card c1">
+      <div class="card-lbl">Load Cell 1</div>
+      <div class="card-num c1"><span id="w1">0.00</span><span class="card-unit">kg</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar1" style="width:0%;background:var(--a1)"></div></div>
+      <div class="badge ok" id="s1">Stock Available</div>
+    </div>
+    <div class="card c2">
+      <div class="card-lbl">Load Cell 2</div>
+      <div class="card-num c2"><span id="w2">0.00</span><span class="card-unit">kg</span></div>
+      <div class="bar-track"><div class="bar-fill" id="bar2" style="width:0%;background:var(--a2)"></div></div>
+      <div class="badge ok" id="s2">Stock Available</div>
+    </div>
+    <div class="card c3">
+      <div class="card-lbl">Queue Count</div>
+      <div class="card-num c3"><span id="qn">0</span></div>
+      <div class="card-meta" id="sc">Capacity: 0 people</div>
+      <div class="badge ok" id="sq">Smooth</div>
+      <div class="badge ok" id="sa" style="margin-top:10px;">No alerts</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+
+    <!-- Chart 1: Both load cells on one graph, Y fixed 0–5 kg -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Load Cell 1 &amp; 2 — Weight</div>
+          <div class="panel-sub">Live · 0 – 5 kg scale · last 30 s</div>
+        </div>
+        <div class="legend">
+          <span><span class="sw" style="background:#38bdf8"></span>Cell 1</span>
+          <span><span class="sw" style="background:#a78bfa"></span>Cell 2</span>
+        </div>
+      </div>
+      <div class="cw">
+        <canvas id="chW" role="img" aria-label="Load cell 1 and load cell 2 weight over time, scale 0 to 5 kg">Live weight data for both load cells.</canvas>
+      </div>
+    </div>
+
+    <!-- Chart 2: Queue only -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Queue Count</div>
+          <div class="panel-sub">Live · people in queue · last 30 s</div>
+        </div>
+        <div class="legend">
+          <span><span class="sw" style="background:#fb923c"></span>Queue</span>
+        </div>
+      </div>
+      <div class="cw">
+        <canvas id="chQ" role="img" aria-label="Queue count over time">Live queue count.</canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Alerts & Events</div>
+          <div class="panel-sub">Latest system warnings and sensor events</div>
+        </div>
+      </div>
+      <div id="alert-list" class="alert-list">
+        <div class="alert-item ok">No alerts</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const MAX = 30;
+const tl=[], d1=[], d2=[], dq=[];
+
+const xCfg = {
+  ticks:{ color:'#475569', font:{size:10}, maxTicksLimit:6 },
+  grid:{ color:'rgba(255,255,255,0.04)' },
+  border:{ color:'rgba(255,255,255,0.05)' }
+};
+const tooltipDefaults = {
+  backgroundColor:'#1e293b',
+  titleColor:'#94a3b8',
+  bodyColor:'#e2e8f0',
+  borderColor:'rgba(255,255,255,0.08)',
+  borderWidth:1,
+  padding:10
+};
+
+/* ── Weight chart: both cells, Y fixed 0–5 kg ── */
+const chW = new Chart(document.getElementById('chW').getContext('2d'), {
+  type:'line',
+  data:{
+    labels: tl,
+    datasets:[
+      {
+        label:'Load Cell 1',
+        data: d1,
+        borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.12)',
+        borderWidth:2, pointRadius:2.5, pointBackgroundColor:'#38bdf8',
+        fill:true, tension:0.42
+      },
+      {
+        label:'Load Cell 2',
+        data: d2,
+        borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.10)',
+        borderWidth:2, pointRadius:2.5, pointBackgroundColor:'#a78bfa',
+        fill:true, tension:0.42,
+        borderDash:[5,4]
+      }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    animation:{ duration:200 },
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{
+        ...tooltipDefaults,
+        callbacks:{
+          label: c => ' '+c.dataset.label+': '+parseFloat(c.parsed.y).toFixed(2)+' kg'
+        }
+      }
+    },
+    scales:{
+      x: xCfg,
+      y:{
+        min:0, max:5,
+        ticks:{
+          color:'#64748b', font:{size:10},
+          stepSize:1,
+          callback: v => v+' kg'
+        },
+        grid:{ color:'rgba(255,255,255,0.04)' },
+        border:{ color:'rgba(255,255,255,0.05)' }
+      }
+    }
+  }
+});
+
+/* ── Queue chart: single series, auto-scale ── */
+const chQ = new Chart(document.getElementById('chQ').getContext('2d'), {
+  type:'line',
+  data:{
+    labels: tl,
+    datasets:[{
+      label:'Queue',
+      data: dq,
+      borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,0.12)',
+      borderWidth:2, pointRadius:2.5, pointBackgroundColor:'#fb923c',
+      fill:true, tension:0.42
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    animation:{ duration:200 },
+    interaction:{ mode:'index', intersect:false },
+    plugins:{
+      legend:{ display:false },
+      tooltip:{
+        ...tooltipDefaults,
+        callbacks:{
+          label: c => ' Queue: '+Math.round(c.parsed.y)+' people'
+        }
+      }
+    },
+    scales:{
+      x: xCfg,
+      y:{
+        beginAtZero:true,
+        ticks:{
+          color:'#fb923c', font:{size:10},
+          stepSize:1,
+          callback: v => Math.round(v)
+        },
+        grid:{ color:'rgba(255,255,255,0.04)' },
+        border:{ color:'rgba(255,255,255,0.05)' }
+      }
+    }
+  }
+});
+
+/* ── Helpers ── */
+function nowStr(){
+  const n=new Date();
+  return [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+}
+
+function wStatus(id, barId, v){
+  const el=document.getElementById(id), bar=document.getElementById(barId);
+  const pct=Math.min(100,(v/5)*100).toFixed(1);
+  bar.style.width=pct+'%';
+  if(v>=3){
+    el.textContent='Stock Available'; el.className='badge ok';
+    bar.style.background='#34d399';
+  } else if(v>=1){
+    el.textContent='Low Stock'; el.className='badge warn';
+    bar.style.background='#fbbf24';
+  } else {
+    el.textContent='Critical!'; el.className='badge danger';
+    bar.style.background='#f87171';
+  }
+}
+
+function qStatus(n){
+  const el=document.getElementById('sq');
+  if(n<3)      {el.textContent='Smooth';   el.className='badge ok';}
+  else if(n<6) {el.textContent='Moderate'; el.className='badge warn';}
+  else         {el.textContent='Crowded';  el.className='badge danger';}
+}
+
+function alertStatus(corruption, overStock, stockCapacity, q){
+  const el = document.getElementById('sa');
+  if(corruption){
+    el.textContent = 'Suspicious stock drop detected';
+    el.className = 'badge danger';
+  } else if(overStock){
+    el.textContent = `Queue exceeds stock capacity (${q} > ${stockCapacity})`;
+    el.className = 'badge danger';
+  } else {
+    el.textContent = 'No alerts';
+    el.className = 'badge ok';
+  }
+}
+
+function updateAlertList(alerts){
+  const container = document.getElementById('alert-list');
+  container.innerHTML = '';
+  if(!alerts || !alerts.length){
+    const empty = document.createElement('div');
+    empty.className = 'alert-item ok';
+    empty.textContent = 'No alerts';
+    container.appendChild(empty);
+    return;
+  }
+  alerts.slice(0, 6).forEach(a => {
+    const item = document.createElement('div');
+    const levelClass = a.level === 'stock' || a.level === 'corruption' || a.level === 'sensor' ? 'danger' : 'warn';
+    item.className = `alert-item ${levelClass}`;
+    item.innerHTML = `
+      <div class="alert-item-title">${a.message}</div>
+      <div class="alert-item-meta">${a.time} • ${a.level}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+/* ── Fetch ── */
+async function fetchData(){
+  try{
+    const r=await fetch('/data'), data=await r.json();
+    const v1=Math.min(5,Math.max(0,parseFloat(data.weight)||0));
+    const v2=Math.min(5,Math.max(0,parseFloat(data.weight_2)||0));
+    const q =Math.max(0,parseInt(data.current)||0);
+
+    document.getElementById('w1').textContent=v1.toFixed(2);
+    document.getElementById('w2').textContent=v2.toFixed(2);
+    document.getElementById('qn').textContent=q;
+    document.getElementById('sc').textContent = `Capacity: ${Math.max(0, parseInt(data.stock_capacity) || 0)} people`;
+
+    wStatus('s1','bar1',v1);
+    wStatus('s2','bar2',v2);
+    qStatus(q);
+    alertStatus(data.corruption, data.queue_over_stock, data.stock_capacity, q);
+    updateAlertList(data.alert_history);
+
+    const t=nowStr();
+    tl.push(t); d1.push(v1); d2.push(v2); dq.push(q);
+    if(tl.length>MAX){ tl.shift(); d1.shift(); d2.shift(); dq.shift(); }
+
+    chW.update();
+    chQ.update();
+  } catch(e){ console.warn(e); }
+}
+
+setInterval(()=>{ document.getElementById('clk').textContent=nowStr(); },1000);
+setInterval(fetchData,1000);
+fetchData();
+</script>
+</body>
+</html>

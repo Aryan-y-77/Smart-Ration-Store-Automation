@@ -1,0 +1,5 @@
+Flask
+requests
+opencv-python
+hx711
+RPi.GPIO

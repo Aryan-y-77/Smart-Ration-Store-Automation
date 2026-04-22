@@ -37,7 +37,9 @@ def load_config():
         "MAX_QUEUE_COUNT": 100,
         "LOW_STOCK_KG": 1.0,
         "SENSOR_FAULT_THRESHOLD_KG": 8.0,
-        "ALERT_HISTORY_LIMIT": 30
+        "ALERT_HISTORY_LIMIT": 30,
+        "SMOOTHING_WINDOW": 10,
+        "SUSTAINED_DROP_READINGS": 3
     }
     if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -79,6 +81,14 @@ MAX_REASONABLE_WEIGHT_KG = config["MAX_REASONABLE_WEIGHT_KG"]
 MAX_QUEUE_COUNT = config["MAX_QUEUE_COUNT"]
 LOW_STOCK_KG = config["LOW_STOCK_KG"]
 SENSOR_FAULT_THRESHOLD_KG = config["SENSOR_FAULT_THRESHOLD_KG"]
+SMOOTHING_WINDOW = config.get("SMOOTHING_WINDOW", 10)
+SUSTAINED_DROP_READINGS = config.get("SUSTAINED_DROP_READINGS", 3)
+
+# Weight history for smoothing and sustained drop detection
+weight_history_1 = deque(maxlen=SMOOTHING_WINDOW)
+weight_history_2 = deque(maxlen=SMOOTHING_WINDOW)
+sustained_drop_counter_1 = 0
+sustained_drop_counter_2 = 0
 
 # ---------------- HX711 SETUP ----------------
 GPIO.setmode(GPIO.BCM)
@@ -154,11 +164,22 @@ def safe_weight(hx, offset, calibration_factor, label, last_value):
         sensor_fault_2 = False
     return weight
 
+
+def get_smoothed_weight(history):
+    """Calculate smoothed weight from history using moving average."""
+    if not history:
+        return 0
+    return round(sum(history) / len(history), 3)
+
 # ---------------- ANOMALY DETECTION ----------------
 def detect_anomalies(current_count):
-    global last_weight_1, last_weight_2, last_queue_count
+    global last_weight_1, last_weight_2, last_queue_count, sustained_drop_counter_1, sustained_drop_counter_2
 
-    total_weight = (current_weight_1 or 0) + (current_weight_2 or 0)
+    # Use smoothed weights from history for more stable detection
+    smoothed_weight_1 = get_smoothed_weight(weight_history_1)
+    smoothed_weight_2 = get_smoothed_weight(weight_history_2)
+    total_weight = smoothed_weight_1 + smoothed_weight_2
+    
     stock_capacity = int(total_weight / WEIGHT_PER_PERSON_KG)
     expected_weight = current_count * WEIGHT_PER_PERSON_KG
     queue_over_stock = total_weight + 0.1 < expected_weight
@@ -167,22 +188,38 @@ def detect_anomalies(current_count):
     drop_1 = 0
     drop_2 = 0
 
-    if not sensor_fault and current_count >= last_queue_count:
-        drop_1 = (last_weight_1 or 0) - (current_weight_1 or 0)
-        drop_2 = (last_weight_2 or 0) - (current_weight_2 or 0)
-        if drop_1 > MIN_WEIGHT_DROP_KG or drop_2 > MIN_WEIGHT_DROP_KG:
+    # Sustained drop detection - only flag if drop persists across multiple readings
+    if not sensor_fault and current_count >= last_queue_count and len(weight_history_1) >= 2:
+        drop_1 = (last_weight_1 or 0) - smoothed_weight_1
+        drop_2 = (last_weight_2 or 0) - smoothed_weight_2
+        
+        # Check if drops are sustained
+        if drop_1 > MIN_WEIGHT_DROP_KG:
+            sustained_drop_counter_1 += 1
+        else:
+            sustained_drop_counter_1 = 0
+            
+        if drop_2 > MIN_WEIGHT_DROP_KG:
+            sustained_drop_counter_2 += 1
+        else:
+            sustained_drop_counter_2 = 0
+        
+        # Flag corruption only if drop persists for N consecutive readings
+        if sustained_drop_counter_1 >= SUSTAINED_DROP_READINGS or sustained_drop_counter_2 >= SUSTAINED_DROP_READINGS:
             corruption = True
+            sustained_drop_counter_1 = 0
+            sustained_drop_counter_2 = 0
 
     if sensor_fault:
         append_alert("sensor", "Sensor fault detected", {"weight1": current_weight_1, "weight2": current_weight_2})
     elif corruption:
-        append_alert("corruption", "Suspicious stock drop while queue stable", {"drop_1": drop_1, "drop_2": drop_2, "queue": current_count})
+        append_alert("corruption", "Suspicious stock drop while queue stable", {"drop_1": round(drop_1, 3), "drop_2": round(drop_2, 3), "queue": current_count})
 
     if queue_over_stock:
         append_alert("stock", "Queue exceeds available stock", {"capacity": stock_capacity, "queue": current_count, "stock_kg": round(total_weight, 3)})
 
-    last_weight_1 = current_weight_1
-    last_weight_2 = current_weight_2
+    last_weight_1 = smoothed_weight_1
+    last_weight_2 = smoothed_weight_2
     last_queue_count = current_count
 
     return {
@@ -196,10 +233,15 @@ def detect_anomalies(current_count):
 
 # ---------------- BACKGROUND THREAD ----------------
 def update_weight_continuously():
-    global current_weight_1, current_weight_2
+    global current_weight_1, current_weight_2, weight_history_1, weight_history_2
     while True:
         current_weight_1 = safe_weight(hx1, OFFSET_1, CALIBRATION_FACTOR_1, "Load Cell 1", current_weight_1)
         current_weight_2 = safe_weight(hx2, OFFSET_2, CALIBRATION_FACTOR_2, "Load Cell 2", current_weight_2)
+        
+        # Add to history for smoothing and sustained drop detection
+        weight_history_1.append(current_weight_1)
+        weight_history_2.append(current_weight_2)
+        
         time.sleep(0.5)
 
 # ---------------- ROUTES ----------------
